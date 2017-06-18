@@ -4,10 +4,14 @@ import numpy as np
 from scipy.spatial import distance
 from timeit import default_timer as timer
 from datetime import timedelta
+from scipy.linalg import eig
+
+from clustertools.models.distance import KMeans
 
 class SpectralClustering(object):
 
-    def __init__(self,data,similarity_metric='eps_dist',laplacian='standard',metric='euclidean',verbose=True,**kwargs):
+    def __init__(self,data,k,similarity_metric='eps_dist',laplacian='standard',metric='euclidean',
+                 low_dim_clustering = None,verbose=True,**kwargs):
         '''
         Graph-based Spectral Clustering
         Args:
@@ -27,6 +31,7 @@ class SpectralClustering(object):
         bandwidth = kwargs.get('bandwidth')
         
         self._data = data
+        self._k = k
         self._laplacian = laplacian
         self._similarity_metric = similarity_metric
         self._cluster_labels = None
@@ -34,7 +39,8 @@ class SpectralClustering(object):
         self._verbose = verbose
         self._metric = metric
         self._eps = eps
-        self._bandwith = bandwidth
+        self._bandwidth = bandwidth
+        self._low_dim_clustering = low_dim_clustering
         
         if self._metric != 'euclidean':
             print('Warning: spectral clustering initialized with different metric than euclidean metric.')
@@ -42,7 +48,7 @@ class SpectralClustering(object):
         if self._similarity_metric == 'eps_dist' and self._eps is None:
             raise TypeError('Argument "eps" for given similarity metric not found')
             
-        if self._similarity_metric == 'gaussian' and self._bandwith is None:
+        if self._similarity_metric == 'gaussian' and self._bandwidth is None:
             raise TypeError('Argument "bandwidth" for given similarity metric not found')
         
 
@@ -72,19 +78,38 @@ class SpectralClustering(object):
 
         #----------------------------------------------------
         
-        distances = distance.cdist(self._data,self._data)
+        #compute adjacency array
+        distances = distance.cdist(self._data,self._data,metric=self._metric)
         if self._similarity_metric == 'eps_dist':
+            print('Constructing discrete similarity matrix')
             W = (distances < self._eps).astype(int)
+        if self._similarity_metric == 'gaussian':
+            print('Constructing gaussian similarity matrix')
+            W = np.exp(-1*np.power(distances,2)/(2*self._bandwidth*2))
             
         
         D = np.diag(np.sum(W,axis=0))
         
-        if self._laplacian == 'standard ':
+        if self._laplacian == 'standard':
+            print('Computing standard Laplacian eigenproblem')
             L = D-W
+            eigvals,eigvecs = eig(L)
+        if self._laplacian == 'normalized':
+            print('Computing generalized Laplacian eigenproblem')
+            L = D-W
+            eigvals,eigvecs = eig(L,D)
+            
+        #if self._low_dim_clustering is None:
+        # self.low_dim_clustering = KMeans(verbose = False)
+            
+        eigvecs = dim*(eigvecs)[:,0:self._k]
         
         
-                
-        self.cluster_labels = cluster_labels
+        cluster_obj = KMeans(data = eigvecs,k=self._k,method='kmeans++',max_iter=300,atol=10**-12,rtol=10**-12)
+        cluster_obj.fit()
+        labels = cluster_obj._cluster_labels
+        self.cluster_labels = labels
+
         if self._verbose:
             #print('Detected %i clusters'%cluster_index)
             elapsed_time = timer() - start_time
@@ -93,3 +118,4 @@ class SpectralClustering(object):
             #noise_rate = noise_counter/n_samples
             #print('Rate of noise in dataset: %f'%noise_rate)
         #self._n_clusters = cluster_index
+
