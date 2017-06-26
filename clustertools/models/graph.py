@@ -108,10 +108,12 @@ class SpectralClustering(object):
                 W = self.eps_dist_adjacency(distances,self._eps)
             if self._similarity_measure == 'gaussian':
                 print('Constructing gaussian similarity matrix')
-                W = np.exp(-1*np.power(distances,2)/(2*self._bandwidth*2))
+                W = np.exp(-1*np.power(distances,2)/(2*self._bandwidth**2))
             if self._similarity_measure == 'kNN':
                 print('Constructing kNN adjacency matrix')
                 W = self.kNN_adjacency(self._k,distances,mode = self._kNN_mode)
+        else:
+            W = self._data
 
         #graph degree matrix
         D = np.diag(np.sum(W,axis=0))
