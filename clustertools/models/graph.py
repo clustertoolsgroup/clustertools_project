@@ -13,7 +13,7 @@ class SpectralClustering(object):
     def __init__(self, data, n, similarity_measure='gaussian', laplacian='normalized', metric='euclidean',
                  low_dim_clustering = None, verbose=True, **kwargs):
         '''
-        Graph-based Spectral Clustering, normalized cuts algorithm by default (normalized laplacian matrix),
+        Graph-based Spectral Clustering, normalized cuts algorithm by default (normalized graph Laplacian),
         see https://people.eecs.berkeley.edu/~malik/papers/SM-ncut.pdf
 
         TODO
@@ -24,13 +24,21 @@ class SpectralClustering(object):
 
 
         Args:
-            data: (n,d)-shaped two-dimensional ndarray
-            similarity measure: specification of similarity measure on data
+            data: (n,d)-shaped two-dimensional ndarray or graph adjacency matrix
+            n: number of clusters to be determined
+            similarity measure: specification of similarity measure on data array for graph generation
                 'eps_dist' for discrete minimal distance measure: optional argument 'eps' must be passed
                 'gaussian' for gaussian similarity measure: optional argument 'bandwidth' must be passed
-            metric: specification of used metric, see scipy.spatial.distance docs
-                WARNING: classic spectral clustering is based on the euclidean distance, it is recommended not to 
-                change the used metric
+                'kNN' for k-nearest neighbor similarity measure: optional arguments 'k' and 'kNN_mode' must be passed
+                    k: number of nearest neighbors to be considered
+                    kNN_mode: 'mutual' or 'unilateral', depending
+                None: the given data array will be considered as an adjacency array, no further graph computations will happen
+            laplacian: type of the graph Laplacian to be eigendecomposed
+                'normalized' for classical normalized cuts algorithm
+                'standard' for unnormalized graph Laplacian. Faster than normalized cuts algorithm, but usually yields poor results.
+                    This is best used in combination with kNN adjacency arrays.
+            metric: specification of used metric used in the similarity measures, see scipy.spatial.distance docs
+                WARNING: classic spectral clustering is based on the euclidean distance, it is recommended to use this metric.
         '''
 
         if type(data) is list:
@@ -93,17 +101,18 @@ class SpectralClustering(object):
         #----------------------------------------------------
         
         #compute adjacency array
-        distances = distance.cdist(self._data,self._data,metric=self._metric)
-        if self._similarity_measure == 'eps_dist':
-            print('Constructing discrete similarity matrix')
-            W = self.eps_dist_adjacency(distances,self._eps)
-        if self._similarity_measure == 'gaussian':
-            print('Constructing gaussian similarity matrix')
-            W = np.exp(-1*np.power(distances,2)/(2*self._bandwidth*2))
-        if self._similarity_measure == 'kNN':
-            print('Constructing kNN adjacency matrix')
-            W = self.kNN_adjacency(self._k,distances,mode = self._kNN_mode)
-        
+        if self._similarity_measure is not None:
+            distances = distance.cdist(self._data,self._data,metric=self._metric)
+            if self._similarity_measure == 'eps_dist':
+                print('Constructing discrete similarity matrix')
+                W = self.eps_dist_adjacency(distances,self._eps)
+            if self._similarity_measure == 'gaussian':
+                print('Constructing gaussian similarity matrix')
+                W = np.exp(-1*np.power(distances,2)/(2*self._bandwidth*2))
+            if self._similarity_measure == 'kNN':
+                print('Constructing kNN adjacency matrix')
+                W = self.kNN_adjacency(self._k,distances,mode = self._kNN_mode)
+
         #graph degree matrix
         D = np.diag(np.sum(W,axis=0))
        
@@ -117,7 +126,7 @@ class SpectralClustering(object):
             L = D-W
             eigvals,eigvecs = eig(L,D)
             
-        #rescaling of eigenvectors for computational purpose       
+        #rescaling of eigenvectors for computational purposes
         eigvecs = dim*(eigvecs)[:,0:self._n]
         
         
