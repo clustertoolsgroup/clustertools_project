@@ -86,11 +86,11 @@ class MeanShift(object):
     """class provides mean shift clustering for n data points in d dimensions.
     
        references: 
-           https://spin.atomicobject.com/2015/05/26/mean-shift-clustering/
-           Mean Shift: A Robust approach towards feature space analysis - Comaniciu, Meer
+           Comaniciu, Dorin, and Peter Meer. "Mean shift: A robust approach toward feature space analysis." 2002.  
+           Turlach, Berwin A. Bandwidth selection in kernel density estimation: A review." 1993.
     """
     
-    def __init__(self, data, bandwidth='scott', max_iter=150, kernel='gaussian', metric = 'euclidean', atol=1e-03, verbose=True):
+    def __init__(self, data, bandwidth='scott', max_iter=150, kernel='gaussian', metric = 'euclidean', atol=1e-03, mindist = None, verbose=True):
         '''
         Args:
             data: (n,d)-shaped d-dimensional ndarray objects containing float/integer data 
@@ -98,11 +98,12 @@ class MeanShift(object):
                         bandwidth -> less, broader clusters and smaller bandwidth -> more clusters, 
                         extreme case: each data point is its own cluster
                         either give a scalar for the bandwidth, or the bandwidth is estimated using 
-                        the 'scott' or 'silverman' rule
+                        the 'scott' rule
             max_iter: int, maximal iterations before terminating
             kernel: typically a Gaussian kernel is used, so far no other kernels implemented
             metric: metric used to compute distances. for possible arguments see metric arguments of scipy.spatial.distance.pdist
             atol: absolute threshold for point to stop shifting. 
+            mindist: minimum distance for shifted points to be assigned to the same cluster. If none, estimate mindist.
         '''
         self._bandwidth = bandwidth 
         self._max_iter = max_iter
@@ -110,7 +111,7 @@ class MeanShift(object):
         self._kernel = kernel
         self._metric = metric
         self._atol = atol
-        self._mindist = None 
+        self._mindist = mindist 
         self._cluster_centers = None
         self._results = None
         self._cluster_labels = None
@@ -122,7 +123,11 @@ class MeanShift(object):
         if self._metric != 'euclidean':
             print('Initialized with %s metric. Use euclidean metric for classic Mean shift algorithm. \n'
                   'Bad things might happen, depending on your dataset and used metric.'%metric)
-
+        if self._kernel != 'gaussian':
+            print('No other kernel is implemented yet.')                        
+        if self._bandwidth == 'scott' or self._bandwidth == 'silverman':
+            print('Bandwidth estimation only works well for scaled data, preprocess the data first using scale_data() if that is not the case.')
+            
     def fit(self):
         '''
         Runs the clustering iteration on the data it was given when initialized.        
@@ -131,20 +136,18 @@ class MeanShift(object):
         if self._verbose:
             start_time = timer()
         
-        self.determine_bandwidth() #if not given a bandwidth, use rule to estimate
-        #TODO add warning that bandwidth estimation only works well with scaled dat
-        #ie use scale_data() function first
+        self.determine_bandwidth()
         
         shifted = np.copy(self._data)
-        [n,d] = np.shape(self._data) #number of data points and dimension
+        [n,d] = np.shape(self._data) 
         
-        stillshifting = [True]*n #stop shifting points when the difference in position < absolute tolerance           
+        stillshifting = [True]*n 
         counter = 0 
     
         while counter < self._max_iter and stillshifting!=[False]*n:
             for i in range(0,n):    
                  if stillshifting[i] == True:
-                     kerneldata =  self.gaussianKernel(self._data, shifted[i])
+                     kerneldata =  self.gaussianKernel(self._data, [shifted[i]])
                      shift = np.sum(self._data*kerneldata,0)/np.sum(kerneldata) 
                      if distance.pdist(np.array([shift, shifted[i]]), metric =self._metric)[0] < self._atol:
                          stillshifting[i] = False
@@ -152,7 +155,8 @@ class MeanShift(object):
             counter += 1
 
         self._results = shifted
-        self._mindist = np.mean([max(self._results[:,k])-min(self._results[:,k]) for k in range(d)])/np.power(n,1/d)
+        if self._mindist == None:
+            self._mindist = 10*self._atol
         self.clusterCenters()
 
         self._fitted = True
@@ -173,35 +177,36 @@ class MeanShift(object):
     
     def determine_bandwidth(self):
         '''
-        If bandwidth (scalar) is not given, determine using either scott's or silverman's rule
-        D.W. Scott, “Multivariate Density Estimation: Theory, Practice, and Visualization”, John Wiley & Sons, New York, Chicester, 1992
-        W. Silverman, “Density Estimation for Statistics and Data Analysis”, Vol. 26, Monographs on Statistics and Applied Probability, Chapman and Hall, London, 1986.
+        If bandwidth (scalar) is not given, determine using scott's rule
+        references: 
+            Turlach, Berwin A. "Bandwidth selection in kernel density estimation: A review." 1993.
+            Scott. "Multivariate Density Estimation: Theory, Practice, and Visualization." 1992.
+        
         '''
         [n,d] = np.shape(self._data)
         if isinstance(self._bandwidth,int) or isinstance(self._bandwidth,float):
             pass
         elif self._bandwidth == 'scott':
             self._bandwidth = n**(-1./(d + 4))
-        elif self._bandwidth == 'silverman':
-            self._bandwidth = (n*(d + 2)/4.)**(-1./(d + 4))
         else:
-            print("The bandwidth has to be either a real number or has to be estimated using 'scott' or 'silverman'")
+            print("The bandwidth has to be either a real number or has to be estimated using 'scott'")
     
     
     def clusterCenters(self):
         '''
         Given the shifted points, group them to clusters, assigning labels 1,..., # of clusters; 
-        the center of a cluster corresponds to the local maxima of the point density; 
+        the centers of clusters correspond to the local maxima of the point density; 
         the distance to cluster centers is calculated using the chosen metric. 
         Outliers are also detected and assigned the label 0, an outlier here is 
-        defined as a cluster with just one member.
+        defined as point that is its own cluster.
         
         (inspired by regular space clustering: http://docs.markovmodel.org/lecture_regspace.html)
         '''
         n, d = int(np.shape(self._results)[0]), int(np.shape(self._results)[1])      
         labels = np.zeros(n)
-        count = 0 #count cluster centers
-        labels[0] = 0 #first point is assigned to 0, outliner, until another point close by is found
+        count = 0 
+        #first point is assigned 0, outlier, until another point close by is found
+        labels[0] = 0 
         for k in np.arange(1,n):
             dist = distance.cdist(self._results[:k,:], [self._results[k,:]], metric =self._metric)
             index_min = np.argmin(dist)
@@ -232,14 +237,15 @@ class MeanShift(object):
         self._cluster_dist = clusterdist
         self._cluster_labels = labels
 
-    def gaussianKernel(self, points, point):
+    def gaussianKernel(self, points, points2):
         '''
         Calculates the Gaussian Kernel of points[i]-point for each element i in the points array; 
         the value of the kernel depends strongly on the chosen bandwidth and also on the distance metric
         '''
-        distancek = distance.cdist(points,[point], metric=self._metric)
+        distancek = distance.cdist(points,points2, metric=self._metric)
         kernel = 1/(self._bandwidth*np.sqrt(2*np.pi)) * np.exp(- distancek**2 /(2* self._bandwidth**2))
         return kernel
+    
 
 
 
