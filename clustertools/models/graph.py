@@ -11,18 +11,13 @@ from clustertools.models.distance import KMeans
 class SpectralClustering(object):
 
     def __init__(self, data, n, similarity_measure='gaussian', laplacian='normalized', metric='euclidean',
-                 low_dim_clustering = None, verbose=True, **kwargs):
+                 kmeans_params = None, verbose=True, **kwargs):
         '''
         Graph-based Spectral Clustering, normalized cuts algorithm by default (normalized graph Laplacian),
-        see https://people.eecs.berkeley.edu/~malik/papers/SM-ncut.pdf
-
-        TODO
-        -resources
-        -update docstrings
-        -unittests
-        -gaussian similarity function as method
-
-
+        runs KMeans on the eigenspace data. It is planned to implement arbitrary clustering algorithms
+        to work on the lower dimensional eigenspace.
+        See https://people.eecs.berkeley.edu/~malik/papers/SM-ncut.pdf
+        
         Args:
             data: (n,d)-shaped two-dimensional ndarray or graph adjacency matrix
             n: number of clusters to be determined
@@ -39,6 +34,9 @@ class SpectralClustering(object):
                     This is best used in combination with kNN adjacency arrays.
             metric: specification of used metric used in the similarity measures, see scipy.spatial.distance docs
                 WARNING: classic spectral clustering is based on the euclidean distance, it is recommended to use this metric.
+            kmeans_params: dict containing optional KMeans settings for clustering on low dimensional eigenspace,
+                see clustertools.models.distance.KMeans doc. If None, default settings will be applied.
+                Note that "data" and "k" parameter of the KMeans instance will always be determined arguments passed to SpectralClustering.
         '''
 
         if type(data) is list:
@@ -60,8 +58,8 @@ class SpectralClustering(object):
         self._metric = metric
         self._eps = eps
         self._bandwidth = bandwidth
-        self._low_dim_clustering = low_dim_clustering
         self._kNN_mode = kNN_mode 
+        self._kmeans_params = kmeans_params
         
         if self._metric != 'euclidean':
             print('Warning: spectral clustering not initialized with euclidean metric. This results in a purely experimental algorithm!')
@@ -135,19 +133,25 @@ class SpectralClustering(object):
         #------------------
         #lowdimensional KMeans run on eigenvectors
 
-        #if self._verbose:
-        #    print('\n')
-        #    print('KMeans initialization on eigenvectors...')
-
-        #TODO optional KMeans arguments for clustering on reduced eigenspace
-        cluster_obj = KMeans(data = eigvecs,k=self._n,method='kmeans++',max_iter=300,atol=10**-12,rtol=10**-12,verbose=self._verbose)
+        if self._verbose:
+            print('\n')
+            print('KMeans initialization on eigenvectors...')
+           
+        if self._kmeans_params is None:
+            #default KMeans parameters
+            cluster_obj = KMeans(data = eigvecs,k=self._n,method='kmeans++',max_iter=300,atol=10**-12,rtol=10**-12,verbose=self._verbose)
+        else:
+            #pass dict arguments 
+            self._kmeans_params["data"] = eigvecs
+            self._kmeans_params["k"] = self._n  
+            cluster_obj = KMeans(**self._kmeans_params)
         cluster_obj.fit()
         labels = cluster_obj._cluster_labels
         self.cluster_labels = labels
 
         #main algorithm verbosity
         if self._verbose:
-            #print ('KMeans terminated. \n')
+            print ('KMeans terminated. \n')
             elapsed_time = timer() - start_time
             elapsed_time = timedelta(seconds=elapsed_time)
             print('Finished after ' + str(elapsed_time))
@@ -166,7 +170,7 @@ class SpectralClustering(object):
             mode:
                 'mutual': two points are adjacent, if both individually are among the k nearest neighbors of the other
                 'unilateral': two points are adjacent, if at least one is among the k nearest neighbors of the other
-        output:
+         utput:
             W: (0,1) ndarray adjacency matrix
         '''
         sorted_indices = np.argsort(distances,axis=1)[:,1:k+1]
