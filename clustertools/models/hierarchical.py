@@ -7,7 +7,7 @@ from datetime import timedelta
 
 class HierarchicalClustering(object):
 
-    def __init__(self, data, link='average', num_stop_crit=1, metric='euclidean',  verbose=True, **kwargs):
+    def __init__(self, data, link='average', num_stop_crit=1, metric='euclidean', verbose=True, **kwargs):
         
         '''
         Hierachical clustering, see https://en.wikipedia.org/wiki/Hierarchical_clustering
@@ -22,11 +22,13 @@ class HierarchicalClustering(object):
                 'average' for average linkage (clusters with smallest pointwise average distance will be linked)
             num_stop_crit=1: number of stopping criteria to be fulfilled to terminate the algorithm: optional arguments 'k' or 'stop_dist' must be passed
                 k: number of clusters to produce (will link clusters, until k clusters are remaining)
-                stop_dist: stop, when linkage criterion distance between clusters exceeds the given stopping distance stop_dist
-            metric:
+                stop_dist: stop, when minimum linkage criterion distance between clusters exceeds the given stopping distance stop_dist
+            metric='euclidian':
                 either: specification of used metric used in the similarity measures, see scipy.spatial.distance docs
                 WARNING: classic clustering is based on the euclidean distance, it is recommended to use this metric.
                 or: None: the given data array will be considered as the distance matrix already (and not as positions)
+            verbose=True:
+                whether to print some verbose data after termination.
         '''
         
         k = kwargs.get('k')
@@ -34,20 +36,21 @@ class HierarchicalClustering(object):
         
         self._data = data
         self._link = link
-        self._num_stop_crit
+        self._num_stop_crit = num_stop_crit
         self._k = k
         self._stop_dist = stop_dist
         self._cluster_labels = None
         self._verbose = verbose
         self._metric = metric
         
+        # Safety checks
         if all((self._metric != 'euclidean', self._metric is not None)):
             print('Warning: hierachical clustering not initialized with euclidean metric or None. This results in a purely experimental algorithm!')
             
-        if self._num_stop_crit > 2
+        if self._num_stop_crit > 2:
             raise NotImplementedError('currently, just 2 stopping criteria for the algorithm are possible (stop_dist and k)')
         
-        # check, if at least one stopping parameter and also enough stopping parameters are given according to num_stop_crit
+        # Check, if at least one stopping parameter and also enough stopping parameters are given according to num_stop_crit
         if self._num_stop_crit <= 0:
             raise InvalidValue('number of given stopping criteria must be greater than zero')
         num_given_crit = 0
@@ -57,13 +60,10 @@ class HierarchicalClustering(object):
             num_given_crit += 1
         if self._num_stop_crit > num_given_crit:
             raise InvalidValue('more stopping criteria were given than specified stopping parameters')
+            
+        # Check link type
+        assert any((self._link=='average', self._link=='complete', self._link=='single')), "unknown link type"
         
-        ##################        
-        ##################
-        ### CHECKPOINT ###
-        ##################
-        ##################
-
         @property
         def cluster_labels(self):
             if self._cluster_labels is None:
@@ -75,74 +75,92 @@ class HierarchicalClustering(object):
 
     def fit(self):
         '''
-        Runs spectral clustering on data.
+        Runs hierarchical clustering on data.
         '''
 
         if self._verbose:
            start_time = timer()
 
-        [n_samples,dim] = self._data.shape
-        cluster_labels = [None]*n_samples
+        [n, dim] = self._data.shape
+        cluster_labels = [None] * n
         
-        #----------------------------------------------------
-        
-        #compute adjacency array
-        if self._similarity_measure is not None:
-            distances = distance.cdist(self._data,self._data,metric=self._metric)
-            if self._similarity_measure == 'eps_dist':
-                print('Constructing discrete similarity matrix')
-                W = self.eps_dist_adjacency(distances,self._eps)
-            if self._similarity_measure == 'gaussian':
-                print('Constructing gaussian similarity matrix')
-                W = np.exp(-1*np.power(distances,2)/(2*self._bandwidth**2))
-            if self._similarity_measure == 'kNN':
-                print('Constructing kNN adjacency matrix')
-                W = self.kNN_adjacency(self._k,distances,mode = self._kNN_mode)
-        else:
-            W = self._data
+        # Init
+        cur_num_clusters = n
+        clusters = [set([i]) for i in range(n)]
+        cluster_dists = distance.squareform(distance.pdist(self._data, self._metric)) if self._metric is not None else self._data
+        cluster_sizes = np.ones(n)
+        cur_stop_crit = 0
+        k_reached = False
+        stop_dist_reached = False
 
-        #graph degree matrix
-        D = np.diag(np.sum(W,axis=0))
-       
-        #construct laplacian matrix
-        if self._laplacian == 'standard':
-            print('Computing standard Laplacian eigenproblem')
-            L = D-W
-            eigvals,eigvecs = eig(L)
-        if self._laplacian == 'normalized':
-            print('Computing generalized Laplacian eigenproblem')
-            L = D-W
-            eigvals,eigvecs = eig(L,D)
+        while cur_stop_crit < self._num_stop_crit:
+
+            # Find two clusters to merge, according to crit
+            np.fill_diagonal(cluster_dists, cluster_dists.max())
+            i_min, j_min = np.unravel_index(cluster_dists.argmin(), (cur_num_clusters, cur_num_clusters))
+            ilen = cluster_sizes[i_min]
+            jlen = cluster_sizes[j_min]
+
+            # Update cluster distances
+            if self._link == 'average':
+                cluster_dists[i_min, :] = (ilen * cluster_dists[i_min, :] 
+                                           + jlen * cluster_dists[j_min, :]) / (ilen + jlen)
+            if self._link == 'single':
+                cluster_dists[i_min, :] = np.minimum(cluster_dists[i_min, :], cluster_dists[j_min, :])
+            if self._link == 'complete':
+                cluster_dists[i_min, :] = np.maximum(cluster_dists[i_min, :], cluster_dists[j_min, :])
+            cluster_dists[:, i_min] = cluster_dists[i_min, :]
+
+            # Delete all j_min-Distances
+            cluster_dists = np.delete(cluster_dists, j_min, axis=0)
+            cluster_dists = np.delete(cluster_dists, j_min, axis=1) # VIELLEICHT IST DAS HIER LANGSAM!!! (vielleicht wäre es besser,
+            # diesen index einfach nicht mehr zu benutzen...)
+
+            # Merge the two nearest clusters, adjust sizes
+            self._merge_sets(clusters, i_min, j_min)
+            cluster_sizes[i_min] += cluster_sizes[j_min]
+            cluster_sizes = np.delete(cluster_sizes, j_min)
+            cur_num_clusters -= 1
             
-        #rescaling of eigenvectors for computational purposes
-        eigvecs = dim*(eigvecs)[:,0:self._n]
-        
-        
-        #------------------
-        #lowdimensional KMeans run on eigenvectors
+            # Count fulfilled stopping criteria
+            if all((self._k is not None, cur_num_clusters <= self._k)):
+                k_reached = True
+            if all((self._stop_dist is not None, cluster_dists.min() > self._stop_dist)):
+                stop_dist_reached = True
+            cur_stop_crit = sum([k_reached, stop_dist_reached])
 
-        #if self._verbose:
-        #    print('\n')
-        #    print('KMeans initialization on eigenvectors...')
+        # Assign data points to clusters
+        self.cluster_labels = np.zeros(n).astype(int)
+        for i, cluster in enumerate(clusters):
+            for elt in cluster:
+                self.cluster_labels[elt] = i
 
-        #TODO optional KMeans arguments for clustering on reduced eigenspace
-        cluster_obj = KMeans(data = eigvecs,k=self._n,method='kmeans++',max_iter=300,atol=10**-12,rtol=10**-12,verbose=self._verbose)
-        cluster_obj.fit()
-        labels = cluster_obj._cluster_labels
-        self.cluster_labels = labels
-
-        #main algorithm verbosity
+        # Algorithm verbosity
         if self._verbose:
-            #print ('KMeans terminated. \n')
+            print("Hierarchical clustering terminated.")
             elapsed_time = timer() - start_time
             elapsed_time = timedelta(seconds=elapsed_time)
-            print('Finished after ' + str(elapsed_time))
+            print("Finished after " + str(elapsed_time))
+            if (k_reached):
+                print("Stopping cluster number was reached.")
+            print("Current number of clusters: {0}".format(cur_num_clusters))
+            if (stop_dist_reached):
+                print("Stopping distance was reached.")
+            print("Current minimum cluster distance: {:.2}".format(cluster_dists.min()))
+    
+    def _merge_sets(self, X, i, j):
+        '''
+        Merges two sets of a list of sets.
+    
+        input:
+            X: list of sets
+            i: index of the one set to merge. Will also be the merged index
+            j: index of the other set to merge. Will be deleted from list
+        '''
+        X[i] = X[i].union(X[j])
+        del X[j]
 
-    #---------------------------------
-    #adjacency matrix generation methods
-    #---------------------------------
-
-    def kNN_adjacency(self,k,distances,mode='mutual'):
+    def some_method(self,k,distances,mode='mutual'):
         '''
         Constructs unweighted kNN adjacency matrix based on distance matrix generated from data.
     
@@ -155,29 +173,5 @@ class HierarchicalClustering(object):
         output:
             W: (0,1) ndarray adjacency matrix
         '''
-        sorted_indices = np.argsort(distances,axis=1)[:,1:k+1]
-        dim = distances.shape[0]
-        neighbors = np.zeros((dim,dim))
-    
-        if mode == 'unilateral':
-            raise NotImplementedError('Unilateral kNN graph generation not yet implemented')
-    
-        if mode == 'mutual':
-            for i,vec in enumerate(sorted_indices):
-                neighbors[i,vec] = 1
-    
-                W = np.multiply(neighbors,neighbors.T)
-        return W
-
-    def eps_dist_adjacency(self,distances,eps):
-        '''
-        Constructs unweighted epsilon-distance adjacency matrix based on distance matrix generated from data.
-
-        input:
-            distances: (n,n)-shaped ndarray, see scipy.spatial.distance.cdist
-            eps: float, size of neighborhood-environment around each data point
-        output:
-            W: (0,1) ndarray adjacency matrix
-        '''
-        W = (distances < self._eps).astype(int)
+        W = np.zeros(k)
         return W
