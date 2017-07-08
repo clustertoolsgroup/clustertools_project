@@ -32,11 +32,20 @@ Fuzzy methods:
 
 - Fuzzy C-Means
 
+### Example
 
+```python
+from clustertools.models.density import MeanShift
+from clustertools.load_data import load_spiral_data
+
+data = load_spiral_data(scale=True)
+
+ms_instance = MeanShift(data,**params)
+ms_instance.fit()
+```
 
 ### Requirements:
 numpy, matplotlib
-
 
 ### Installation
 Call
