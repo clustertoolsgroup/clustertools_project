@@ -211,7 +211,7 @@ class SpectralClustering(object):
 
 class AffinityPropagation(object):
 
-    def __init__(self, data, max_iter = 100, similarity_measure='squared_distance', metric='euclidean',
+    def __init__(self, data, max_iter = 100,damp=.5 ,similarity_measure='squared_distance', metric='euclidean',
                     atol=10e-3, rtol=10e-3, verbose=True, **kwargs):
         '''
         
@@ -225,6 +225,7 @@ class AffinityPropagation(object):
 
         self._data = data
         self._similarity_measure = similarity_measure
+        self._damp = damp
         self._cluster_labels = None
         self._n_clusters = None
         self._verbose = verbose
@@ -240,14 +241,14 @@ class AffinityPropagation(object):
         if self._similarity_measure == 'gaussian' and self._bandwidth is None:
             raise TypeError('Argument "bandwidth" for given similarity metric not found')
 
-        @property
-        def cluster_labels(self):
-            if self._cluster_labels is None:
-                self.fit()
-            return self._cluster_labels
-        @cluster_labels.setter
-        def cluster_labels(self,value):
-            self._cluster_labels = value
+    @property
+    def cluster_labels(self):
+        if self._cluster_labels is None:
+            self.fit()
+        return self._cluster_labels
+    @cluster_labels.setter
+    def cluster_labels(self,value):
+        self._cluster_labels = value
 
     def fit(self):
         '''
@@ -272,6 +273,9 @@ class AffinityPropagation(object):
                 print('Constructing gaussian similarity matrix')
                 S = np.exp(-1*np.power(distance.pdist(self._data,self._metric),2)/(2*self._bandwidth**2))
 
+
+        np.fill_diagonal(S,np.median(S))
+
         counter = 0
         break_cond = False # flags the termination by break condition
 
@@ -282,52 +286,44 @@ class AffinityPropagation(object):
             A_old = np.copy(A)
             R_old = np.copy(R)
 
-            #responsibility matrix
+            #responsability matrix
             AS = A+S
 
-            maxes = np.max(AS,axis=1)
             max_inds = np.argsort(AS,axis=1)
-            AS_max = np.ones((n_samples, n_samples)) * maxes[:, np.newaxis]
-            #update second-to-max elements in corresponding indices
+            maxes = np.max(AS,axis=1)
+
+            maxes_AS = np.tile(maxes[:,np.newaxis],(1,n_samples))
             for i in range(n_samples):
-                AS_max[i,max_inds[i,-1]] = AS[i,max_inds[i,-2]]
-            R = S - AS_max
+                maxes_AS[i,max_inds[i,-1]] = AS[i,max_inds[i,-2]]
+            R = S - maxes_AS
+            #damping
+            R = self._damp*R + (1-self._damp)*R_old
 
             #availability matrix
-            #for i,j in product(range(n_samples),repeat=2):
-            #    if i!=j:
-            #        sum_indices = [k for k in range(n_samples) if k!=i and k!=j]
-            #        A[i,j] = R[j,j] + np.sum(R[sum_indices,j][R[sum_indices,j]>0])
-            #    elif i==j:
-            #        sum_indices = [k for k in range(n_samples) if k!=i]
-            #        A[i,j] = np.sum(R[sum_indices,j][R[sum_indices,j]>0])
-            
-            counter = counter+1
-            
-            R_pos = np.maximum(R,np.zeros((n_samples,n_samples)))
-            for i in range(n_samples):
-                R_pos[i,i] = R[i,i]
-            A = np.tile(np.sum(R_pos,axis=0),(n_samples,1))-R_pos
-            diagA = np.diag(A)
-            A = np.minimum(A,np.zeros((n_samples,n_samples)))
-            for k in range(n_samples):
-                A[k,k] = diagA[k]
-            
-            AR = A+R
-            indices = np.arange(n_samples)[np.diag(AR)>0] 
-            
-        print('done.')
-        return A,R,indices
-            #if np.allclos   e(R,R_old, self._atol, self._rtol):
-            #    break_cond = True
-            #    cluster_centers = new_cluster_centers
-            #    break
-            #cluster_centers = new_cluster_centers
-            #counter = counter+1
+            R_pos = np.maximum(R,0)
+            np.fill_diagonal(R_pos,np.diag(R))
+            R_sum = np.sum(R_pos,axis=0)
+            R_sum_mat = np.tile(R_sum,(n_samples,1))
+            R_sum_mat = R_sum_mat - R_pos
 
-        #cluster_labels, cluster_dist = get_cluster_info(self._data, cluster_centers, metric=self._metric)
-        #self._cluster_centers = cluster_centers
-        #self._cluster_labels = cluster_labels
+            #minimum on offidagonal elements
+            M = np.zeros((n_samples,n_samples))
+            np.fill_diagonal(M,np.inf)
+            A = np.minimum(R_sum_mat,M)
+
+            #damping
+            A = self._damp * A + (1 - self._damp) * A_old
+
+            counter = counter+1
+
+        #label assignment
+        E = A + R
+        indices = np.arange(n_samples)[np.diag(E)>0]
+        np.fill_diagonal(S,np.inf)
+        cluster_labels = np.argmax(S[:,indices],axis = 1)
+
+
+        self._cluster_labels = cluster_labels
 
         #if self._verbose:
         #    if break_cond:
