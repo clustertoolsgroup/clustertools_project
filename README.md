@@ -8,6 +8,8 @@ A self-contained, scikit-learn API-oriented Python package supporting a variety 
 
 Developed as part of "Mathematical aspects in Machine Learning", Freie Universität Berlin, summer semester 2017.
 
+![](https://raw.githubusercontent.com/clustertoolsgroup/clustertools_project/master/images/meanshift_examples.png)
+
 ### Contents
 This package provides the following functionality:
 
