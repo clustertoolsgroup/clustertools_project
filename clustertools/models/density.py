@@ -119,13 +119,15 @@ class MeanShift(object):
         self._verbose = verbose
         self._fitted = False
         self._outliers = False
+        self._iter = None
+        self._time = None
 
         if self._metric != 'euclidean':
             print('Initialized with %s metric. Use euclidean metric for classic Mean shift algorithm. \n'
                   'Bad things might happen, depending on your dataset and used metric.'%metric)
         if self._kernel != 'gaussian':
             print('No other kernel is implemented yet.')                        
-        if self._bandwidth == 'scott' or self._bandwidth == 'silverman':
+        if self._bandwidth == 'scott' and self._verbose:
             print('Bandwidth estimation only works well for scaled data, preprocess the data first using scale_data() if that is not the case.')
             
     def fit(self):
@@ -133,8 +135,8 @@ class MeanShift(object):
         Runs the clustering iteration on the data it was given when initialized.        
         '''
         
-        if self._verbose:
-            start_time = timer()
+
+        start_time = timer()
         
         self.determine_bandwidth()
         
@@ -160,14 +162,14 @@ class MeanShift(object):
         self.clusterCenters()
 
         self._fitted = True
-        
+        self._iter = counter
+        elapsed_time = timer() - start_time
+        #elapsed_time = timedelta(seconds=elapsed_time)
+        self._time = elapsed_time
         
         if self._verbose:
-
             print('%s iterations until termination.' % str(counter))
             print('Used bandwidth: %f' % self._bandwidth)
-            elapsed_time = timer() - start_time
-            elapsed_time = timedelta(seconds=elapsed_time)
             print('Finished after '+str(elapsed_time))
             print('Number of clusters found: %f'% np.max(self._cluster_labels))
             print('There is/are %f outliers' %self._outliers)
