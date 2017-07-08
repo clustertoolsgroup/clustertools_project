@@ -61,4 +61,26 @@ pip install git+https://github.com/clustertoolsgroup/clustertools_project
 ``` 
 to install from github.
 
+### References
+
+Bezdek, James C., Robert Ehrlich, and William Full. "FCM: The fuzzy c-means clustering algorithm." Computers \& Geosciences 10.2-3 (1984): 191-203
+
+Comaniciu, Dorin, and Peter Meer. "Mean shift: A robust approach toward feature space analysis." IEEE Transactions on pattern analysis and machine intelligence 24.5 (2002): 603-619.
+
+Frey, Brendan J. and Delbert Dueck. "Clustering by Passing Messages Between Data Points."
+Science Vol. 315, Issue 5814 (2007): 972-976
+
+Jordan, Michael I., Andrew Y. Ng and Yair Weiss: "On spectral clustering: Analysis and an algorithm." In: Advances in Neural Information Processing Systems. 2, (2002), S. 849-856.
+
+Malik, Jitendra and Jianbo Shi. "Normalized Cuts and Image Segmentation. IEEE Transactions on Pattern Analysis and Machine Intelligence." 22(8), (2000), S. 888-905.
+
+Perez-Hernandez, Guillermo, Fabian Paul, Toni Giorgino, Gianni de Fabritiis and Frank Noé.
+"Identification of slow molecular order parameters for Markov model construction" Journal of Chemical Physics, 139(1) (2013): 015102. 
+
+Prinz, J.-H., H. Wu, M. Sarich, B. Keller, M. Senne, M. Held, J. D. Chodera, C. Schütte and F. Noé: "Markov models of molecular kinetics: Generation and Validation." J. Chem. Phys. 134, 174105 (2011).
+
+Turlach, Berwin A. "Bandwidth selection in kernel density estimation: A review." Louvain-la-Neuve: Université catholique de Louvain, 1993.
+
+
+As well as datasets from https://cs.joensuu.fi/sipu/datasets/ (07/07/2017)
 
