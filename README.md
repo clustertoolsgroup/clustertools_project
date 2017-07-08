@@ -1,5 +1,4 @@
 
-
 ## Clustertools
 
 ### Overview
@@ -26,11 +25,17 @@ Density-based clustering:
 Similarity/graph-based clustering:
 
 - Spectral clustering (Normalized cuts/standardized graph Laplacian)
-- Affinity Propagation 
+- Affinity Propagation
+- Hierarchical clustering
 
 Fuzzy methods:
 
 - Fuzzy C-Means
+
+Consensus clustering (similarity-based):
+
+- By reclustering points
+- By reclustering clusters and competing for points
 
 ### Example
 
