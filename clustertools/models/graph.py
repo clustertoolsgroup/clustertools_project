@@ -5,8 +5,13 @@ from scipy.spatial import distance
 from timeit import default_timer as timer
 from datetime import timedelta
 from scipy.linalg import eig
+from itertools import product
 
 from clustertools.models.distance import KMeans
+
+#----------------------------
+#SpectralClustering
+#----------------------------
 
 class SpectralClustering(object):
 
@@ -156,7 +161,7 @@ class SpectralClustering(object):
             elapsed_time = timedelta(seconds=elapsed_time)
             print('Finished after ' + str(elapsed_time))
 
-    #---------------------------------
+
     #adjacency matrix generation methods
     #---------------------------------
 
@@ -199,3 +204,135 @@ class SpectralClustering(object):
         '''
         W = (distances < self._eps).astype(int)
         return W
+
+#----------------------------
+#AffinityPropagation
+#----------------------------
+
+class AffinityPropagation(object):
+
+    def __init__(self, data, max_iter = 100,damp=.5 ,similarity_measure='squared_distance', metric='euclidean',
+                    atol=10e-3, rtol=10e-3, verbose=True, **kwargs):
+        '''
+        
+        Args:
+        '''
+
+        if type(data) is list:
+            raise NotImplementedError('Affinity Propagation is not list compatible yet')
+        
+        bandwidth = kwargs.get('bandwidth')       
+
+        self._data = data
+        self._similarity_measure = similarity_measure
+        self._damp = damp
+        self._cluster_labels = None
+        self._n_clusters = None
+        self._verbose = verbose
+        self._metric = metric
+        #self._eps = eps
+        self._bandwidth = bandwidth
+        self._max_iter = max_iter
+        
+        if self._metric != 'euclidean':
+            print('Warning: spectral clustering not initialized with euclidean metric. This results in a purely experimental algorithm!')
+            
+        #check for bandwidth
+        if self._similarity_measure == 'gaussian' and self._bandwidth is None:
+            raise TypeError('Argument "bandwidth" for given similarity metric not found')
+
+    @property
+    def cluster_labels(self):
+        if self._cluster_labels is None:
+            self.fit()
+        return self._cluster_labels
+    @cluster_labels.setter
+    def cluster_labels(self,value):
+        self._cluster_labels = value
+
+    def fit(self):
+        '''
+        Runs Affinity Propagation on data.
+        '''
+
+        if self._verbose:
+           start_time = timer()
+
+        [n_samples,dim] = self._data.shape
+        cluster_labels = [None]*n_samples
+        
+        #----------------------------------------------------
+        #similarity matrix
+        if self._similarity_measure == 'distance':
+                print('Constructing distance matrix')
+                S = -distance.pdist(self._data,self._metric)
+        if self._similarity_measure == 'squared_distance':
+                print('Constructing squared distance matrix')
+                S = -np.power(distance.cdist(self._data,self._data,self._metric),2)
+        if self._similarity_measure == 'gaussian':
+                print('Constructing gaussian similarity matrix')
+                S = np.exp(-1*np.power(distance.pdist(self._data,self._metric),2)/(2*self._bandwidth**2))
+
+
+        np.fill_diagonal(S,np.median(S))
+
+        counter = 0
+        break_cond = False # flags the termination by break condition
+
+        A = np.zeros((n_samples,n_samples))
+        R = np.zeros((n_samples,n_samples))
+
+        while counter < self._max_iter:
+            A_old = np.copy(A)
+            R_old = np.copy(R)
+
+            #responsability matrix
+            AS = A+S
+
+            max_inds = np.argsort(AS,axis=1)
+            maxes = np.max(AS,axis=1)
+
+            maxes_AS = np.tile(maxes[:,np.newaxis],(1,n_samples))
+            for i in range(n_samples):
+                maxes_AS[i,max_inds[i,-1]] = AS[i,max_inds[i,-2]]
+            R = S - maxes_AS
+            #damping
+            R = self._damp*R + (1-self._damp)*R_old
+
+            #availability matrix
+            R_pos = np.maximum(R,0)
+            np.fill_diagonal(R_pos,np.diag(R))
+            R_sum = np.sum(R_pos,axis=0)
+            R_sum_mat = np.tile(R_sum,(n_samples,1))
+            R_sum_mat = R_sum_mat - R_pos
+
+            #minimum on offidagonal elements
+            M = np.zeros((n_samples,n_samples))
+            np.fill_diagonal(M,np.inf)
+            A = np.minimum(R_sum_mat,M)
+
+            #damping
+            A = self._damp * A + (1 - self._damp) * A_old
+
+            counter = counter+1
+
+        #label assignment
+        E = A + R
+        indices = np.arange(n_samples)[np.diag(E)>0]
+        np.fill_diagonal(S,np.inf)
+        cluster_labels = np.argmax(S[:,indices],axis = 1)
+
+
+        self._cluster_labels = cluster_labels
+
+        #if self._verbose:
+        #    if break_cond:
+        #        print('terminated by break condition')
+        #    print('%s iterations until termination.' % str(counter))
+        #    elapsed_time = timer() - start_time
+        #    elapsed_time = timedelta(seconds=elapsed_time)
+        #    print('Finished after '+str(elapsed_time))
+        #    print('max within-cluster distance to center: %f'%np.max(self._cluster_dist))
+        #    print('mean within-cluster distance to center: %f' %np.mean(self._cluster_dist))
+        #    print('sum of within cluster squared errors: %f' % np.sum(np.square(self._cluster_dist)))
+
