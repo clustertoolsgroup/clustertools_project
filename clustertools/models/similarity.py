@@ -461,10 +461,12 @@ class HierarchicalClustering(object):
             cur_num_clusters -= 1
             
             # Count fulfilled stopping criteria
-            if all((self._k is not None, cur_num_clusters <= self._k)):
-                k_reached = True
-            if all((self._stop_dist is not None, cluster_dists.min() > self._stop_dist)):
-                stop_dist_reached = True
+            if self._k is not None:
+                if cur_num_clusters <= self._k:
+                    k_reached = True
+            if self._stop_dist is not None:
+                if cluster_dists.min() > self._stop_dist:
+                    stop_dist_reached = True
             cur_stop_crit = sum([k_reached, stop_dist_reached])
 
         # Assign data points to clusters
