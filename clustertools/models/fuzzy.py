@@ -37,6 +37,8 @@ class FuzzyCMeans(object):
         self._metric = metric
         self._verbose = verbose
         self._membership = None
+        self._iter = None
+        self._time = None
 
         if self._metric != 'euclidean':
             print('Initialized with %s metric. Use euclidean metric for classic Mean shift algorithm. \n'
@@ -47,8 +49,7 @@ class FuzzyCMeans(object):
         Runs the clustering iteration on the data it was given when initialized.     
         '''
 
-        if self._verbose:
-            start_time = timer()
+        start_time = timer()
         
         #initialize
         [n,d] = self._data.shape
@@ -81,9 +82,10 @@ class FuzzyCMeans(object):
         self._membership = Uk
         self._cluster_centers = vk
         self._cluster_dist = np.min(D,axis=0)
-        
-        if self._verbose:
-            elapsed_time = timer() - start_time
+        self._iter = k
+        elapsed_time = timer() - start_time
+        self._time = elapsed_time
+        if self._verbose: 
             print('Finished after ' + str(elapsed_time))
             print('%s iterations until termination.' % str(k))
             print('Max within cluster distance to center: %f'%np.max(self._cluster_dist))
