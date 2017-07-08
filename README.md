@@ -12,27 +12,29 @@ Developed as part of "Mathematical aspects in Machine Learning", Freie Universit
 ### Contents
 This package provides the following functionality:
 
-Distance-based clustering:
+**Distance-based clustering**:
 
-- Regspace
-- K-Means(++)
+- Regular space clustering 
+- K-Means/K-Means++ (Lloyd-type iterative method)
 
-Density-based clustering:
+**Density-based clustering**:
 
 - DBSCAN
 - Mean shift
 
-Similarity/graph-based clustering:
+**Similarity/graph-based clustering**:
 
-- Spectral clustering (Normalized cuts/standardized graph Laplacian)
+- Spectral clustering (Normalized cuts method/standardized graph Laplacian)
 - Affinity Propagation
 - Hierarchical clustering
 
-Fuzzy methods:
+Note: Spectral clustering and Affinity propagation offer options to cluster on abstract graphs and adjacency/similarity arrays.
+
+**Fuzzy methods**:
 
 - Fuzzy C-Means
 
-Consensus clustering (similarity-based):
+**Consensus clustering (similarity-based)**:
 
 - By reclustering points
 - By reclustering clusters and competing for points
@@ -63,6 +65,9 @@ to install from github.
 
 ### References
 
+Arthur, D. and Vassilvitskii, S. "k-means++: the advantages of careful seeding." 
+Proceedings of the eighteenth annual ACM-SIAM symposium on Discrete algorithms. Society for Industrial and Applied Mathematics Philadelphia, PA, USA. pp. 1027–1035 (2007).
+
 Bezdek, James C., Robert Ehrlich, and William Full. "FCM: The fuzzy c-means clustering algorithm." Computers \& Geosciences 10.2-3 (1984): 191-203
 
 Comaniciu, Dorin, and Peter Meer. "Mean shift: A robust approach toward feature space analysis." IEEE Transactions on pattern analysis and machine intelligence 24.5 (2002): 603-619.
@@ -73,6 +78,9 @@ Science Vol. 315, Issue 5814 (2007): 972-976
 Jordan, Michael I., Andrew Y. Ng and Yair Weiss: "On spectral clustering: Analysis and an algorithm." In: Advances in Neural Information Processing Systems. 2, (2002), S. 849-856.
 
 Malik, Jitendra and Jianbo Shi. "Normalized Cuts and Image Segmentation. IEEE Transactions on Pattern Analysis and Machine Intelligence." 22(8), (2000), S. 888-905.
+
+Ostrovsky, R., Rabani, Y., Schulman, L. J. and Swamy, C. "The Effectiveness of Lloyd-Type Methods for the k-Means Problem". 
+Proceedings of the 47th Annual IEEE Symposium on Foundations of Computer Science (FOCS'06). IEEE. (2006) pp. 165–174.
 
 Perez-Hernandez, Guillermo, Fabian Paul, Toni Giorgino, Gianni de Fabritiis and Frank Noé.
 "Identification of slow molecular order parameters for Markov model construction" Journal of Chemical Physics, 139(1) (2013): 015102. 
