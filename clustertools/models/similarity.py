@@ -402,14 +402,14 @@ class HierarchicalClustering(object):
         # Check link type
         assert any((self._link=='average', self._link=='complete', self._link=='single')), "unknown link type"
         
-        @property
-        def cluster_labels(self):
-            if self._cluster_labels is None:
-                self.fit()
-            return self._cluster_labels
-        @cluster_labels.setter
-        def cluster_labels(self,value):
-            self._cluster_labels = value
+    @property
+    def cluster_labels(self):
+        if self._cluster_labels is None:
+            self.fit()
+        return self._cluster_labels
+    @cluster_labels.setter
+    def cluster_labels(self,value):
+        self._cluster_labels = value
 
     def fit(self):
         '''
@@ -417,7 +417,7 @@ class HierarchicalClustering(object):
         '''
 
         if self._verbose:
-           start_time = timer()
+            start_time = timer()
 
         [n, dim] = self._data.shape
         cluster_labels = [None] * n
