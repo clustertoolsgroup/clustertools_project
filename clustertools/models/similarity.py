@@ -15,7 +15,7 @@ from clustertools.models.distance import KMeans
 
 class SpectralClustering(object):
 
-    def __init__(self, data, n, similarity_measure='gaussian', laplacian='normalized', metric='euclidean',
+    def __init__(self, data, k, similarity_measure='gaussian', laplacian='normalized', metric='euclidean',
                  kmeans_params = None, verbose=True, **kwargs):
         '''
         Graph-based Spectral Clustering, normalized cuts algorithm by default (normalized graph Laplacian),
@@ -25,12 +25,12 @@ class SpectralClustering(object):
         
         Args:
             data: (n,d)-shaped two-dimensional ndarray or graph adjacency matrix
-            n: number of clusters to be determined
+            k: number of clusters to be determined
             similarity measure: specification of similarity measure on data array for graph generation
                 'eps_dist' for discrete minimal distance measure: optional argument 'eps' must be passed
                 'gaussian' for gaussian similarity measure: optional argument 'bandwidth' must be passed
                 'kNN' for k-nearest neighbor similarity measure: optional arguments 'k' and 'kNN_mode' must be passed
-                    k: number of nearest neighbors to be considered
+                    k_neighbor: number of nearest neighbors to be considered
                     kNN_mode: 'mutual' or 'unilateral', depending
                 None: the given data array will be considered as an adjacency array, no further graph computations will happen
             laplacian: type of the graph Laplacian to be eigendecomposed
@@ -49,12 +49,12 @@ class SpectralClustering(object):
         
         eps = kwargs.get('eps')
         bandwidth = kwargs.get('bandwidth')
-        k = kwargs.get('k')
+        k_neighbor = kwargs.get('k_neighbor')
         kNN_mode = kwargs.get('kNN_mode')
         
-        self._n = n
-        self._data = data
         self._k = k
+        self._data = data
+        self._k_neighbor = k_neighbor
         self._laplacian = laplacian
         self._similarity_measure = similarity_measure
         self._cluster_labels = None
@@ -114,7 +114,7 @@ class SpectralClustering(object):
                 W = np.exp(-1*np.power(distances,2)/(2*self._bandwidth**2))
             if self._similarity_measure == 'kNN':
                 print('Constructing kNN adjacency matrix')
-                W = self.kNN_adjacency(self._k,distances,mode = self._kNN_mode)
+                W = self.kNN_adjacency(self._k_neighbor,distances,mode = self._kNN_mode)
         else:
             W = self._data
 
@@ -132,7 +132,7 @@ class SpectralClustering(object):
             eigvals,eigvecs = eig(L,D)
             
         #rescaling of eigenvectors for computational purposes
-        eigvecs = dim*(eigvecs)[:,0:self._n]
+        eigvecs = dim*(eigvecs)[:,0:self._k]
         
         
         #------------------
@@ -144,11 +144,11 @@ class SpectralClustering(object):
            
         if self._kmeans_params is None:
             #default KMeans parameters
-            cluster_obj = KMeans(data = eigvecs,k=self._n,method='kmeans++',max_iter=300,atol=10**-12,rtol=10**-12,verbose=self._verbose)
+            cluster_obj = KMeans(data = eigvecs,k=self._k,method='kmeans++',max_iter=300,atol=10**-12,rtol=10**-12,verbose=self._verbose)
         else:
             #pass dict arguments 
             self._kmeans_params["data"] = eigvecs
-            self._kmeans_params["k"] = self._n  
+            self._kmeans_params["k"] = self._k
             cluster_obj = KMeans(**self._kmeans_params)
         cluster_obj.fit()
         labels = cluster_obj._cluster_labels
