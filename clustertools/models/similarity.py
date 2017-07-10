@@ -357,12 +357,13 @@ class AffinityPropagation(object):
                 indices = np.arange(n_samples)[np.diag(E) > 0]
                 # fill break storage
                 break_index = counter % self._n_break_storage
-                break_storage[break_index] = np.sort(indices)
+                break_storage[break_index] = indices
 
                 # break condition check
-                if counter > self._n_break_storage and np.all(x==break_storage[0] for x in break_storage):
+                if (counter > self._n_break_storage) and np.all([np.array_equal(x,break_storage[0]) for x in break_storage]):
                     break_cond=True
                     break
+
 
         #label assignment after loop if no break criterion available -> saves time
         if self._n_break_storage is None:
