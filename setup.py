@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 def readme():
     with open('README.md') as f:
@@ -6,6 +6,8 @@ def readme():
 
 setup(
     name='clustertools',
+    packages = find_packages(),
+    include_package_data=True,
     version='0.1.0',
     description='',
     long_description=readme(),
@@ -16,7 +18,6 @@ setup(
     url='https://github.com/clustertoolsgroup/clustertools_project',
     author='',
     author_email='',
-    packages=['clustertools'],
     install_requires=['numpy', 'matplotlib', 'scipy'],
     tests_require=['nose'],
     test_suite='nose.collector'
