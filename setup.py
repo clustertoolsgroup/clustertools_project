@@ -13,11 +13,11 @@ setup(
         'Development Status :: 1 - Planning',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3'],
-    url='https://github.com/ TODO',
+    url='https://github.com/clustertoolsgroup/clustertools_project',
     author='',
     author_email='',
     packages=['clustertools'],
-    install_requires=['numpy', 'matplotlib', 'scipy', 'pandas'],
+    install_requires=['numpy', 'matplotlib', 'scipy'],
     tests_require=['nose'],
     test_suite='nose.collector'
 )
