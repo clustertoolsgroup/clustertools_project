@@ -4,6 +4,7 @@ import numpy as np
 from scipy.spatial import distance
 from timeit import default_timer as timer
 from datetime import timedelta
+from copy import deepcopy
 
 from clustertools.models import similarity
 
@@ -13,7 +14,7 @@ from clustertools.models import similarity
 
 class Consensus(object):
 
-    def __init__(self, clusterings, k=5, recluster_what='clusters', how='spectral', spectral_params=None, verbose=True, **kwargs):
+    def __init__(self, clusterings, k=5, recluster_what='points', how='hierarchical', spectral_params=None, verbose=True, **kwargs):
 
         '''
         Consensus clustering, see e.g. http://www.jmlr.org/papers/volume3/strehl02a/strehl02a.pdf
@@ -40,7 +41,7 @@ class Consensus(object):
         self._spectral_params = spectral_params
         self._cluster_labels = None
         self._m = len(clusterings)
-        
+        self._anmi = None
         
         # Safety checks
         assert self._m > 0, "the list of fitted clustering objects is empty"
@@ -58,6 +59,15 @@ class Consensus(object):
     @cluster_labels.setter
     def cluster_labels(self,value):
         self._cluster_labels = value
+        
+    @property
+    def anmi(self):
+        if self._anmi is None:
+            self.fit()
+        return self._anmi
+    @anmi.setter
+    def anmi(self,value):
+        self._anmi = value
 
     def fit(self):
         '''
@@ -68,7 +78,9 @@ class Consensus(object):
             start_time = timer()
 
         # Init
-        self._cluster_labels = [None] * self._n
+        self._cluster_labels = np.zeros(self._n)
+        for i in range(self._m):
+            self._clusterings[i] = self._noise_to_zero(self._clusterings[i])        
         
         # Create array of labels
         labels = np.zeros((self._n, self._m)).astype(int)
@@ -112,7 +124,7 @@ class Consensus(object):
         meta_clustering.fit()
         meta_labels = meta_clustering.cluster_labels
         
-        # Possibly for points
+        # Take the meta_cluster_labels, or compete for points when reclustering clusters
         if self._recluster_what == 'points':
             self._cluster_labels = meta_labels
         if self._recluster_what == 'clusters':
@@ -121,6 +133,19 @@ class Consensus(object):
                 point_label_buckets[:, meta_labels[edge_ind]] += hypergraph[edge_ind]
             for i in range(self._n):
                 self._cluster_labels[i] = np.random.choice(np.flatnonzero(point_label_buckets[i, :] == point_label_buckets[i, :].max()))
+        # self._cluster_labels = np.array(self._cluster_labels)
+        
+        # Compute ANMI (average normalized mutual information) of consensus with clusterings
+        self._anmi = 0
+        for clustering in self._clusterings:
+            # print(type(clustering))
+            # print(type(clustering.cluster_labels))
+            # print(type(self.cluster_labels))
+            self._anmi += self.compute_nmi(self.cluster_labels, clustering.cluster_labels)
+        #for i in range(self._m):
+            #print(type(self._clusterings[i]))
+            #print(type(self._clusterings[i].cluster_labels))
+        self._anmi = self._anmi / self._m
 
         # Algorithm verbosity
         if self._verbose:
@@ -128,3 +153,59 @@ class Consensus(object):
             elapsed_time = timer() - start_time
             elapsed_time = timedelta(seconds=elapsed_time)
             print("Finished after " + str(elapsed_time))
+            print("ANMI (average normalized mutual information) of consensus with clusterings: {:.3}".format(self._anmi))
+            
+    
+    def compute_nmi(self, labels_a, labels_b):
+        '''
+        Computes the normalized mutual information between two clusterings.
+        
+        Args:
+            labels_a: labels of clustering a, ranging from 0 to k_a - 1, where k_a is the number of labels in that clustering
+            labels_b: labels of clustering b, ranging from 0 to k_b - 1, where k_b is the number of labels in that clustering
+            
+        Output:
+            normalized mutual information
+        '''
+        
+        assert len(labels_a) == len(labels_b), "clusterings did not cluster same amount of points"
+        
+        # Init
+        n = len(labels_a)
+        k_a = len(np.unique(labels_a))
+        k_b = len(np.unique(labels_b))
+        entropy_a = 0
+        entropy_b = 0
+        
+        # Compute mutual information estimate and entropy estimate of a (with n cancenlled)
+        mutual_information = 0
+        for i in range(k_a):
+            n_i = sum(labels_a == i)
+            if n_i > 0:
+                entropy_a += n_i * np.log(n_i / n)
+                for j in range(k_b):
+                    n_j = sum(labels_b == j)
+                    n_ij = sum((labels_a == i) * (labels_b == j))
+                    if n_ij > 0:
+                        mutual_information += n_ij * np.log(n * n_ij / n_i / n_j)
+                
+        # Compute entropy estimate of b (with n cancenlled)
+        for j in range(k_b):
+            n_j = sum(labels_b == j)
+            if n_j > 0:
+                entropy_b += n_j * np.log(n_j / n)
+            
+        #print("mutual information: {0}".format(mutual_information))
+        #print("entropy a: {0}".format(entropy_a))
+        #print("entropy b: {0}".format(entropy_b))
+        
+        return mutual_information / np.sqrt(entropy_a * entropy_b)
+    
+    def _noise_to_zero(self, clustering_obj):
+        '''Returns a copy of the clustering object with noise-labels set to an ndarray of 0-labels.'''
+        clustering_obj_copy = deepcopy(clustering_obj)
+        for i in range(len(clustering_obj_copy.cluster_labels)):
+            if clustering_obj_copy.cluster_labels[i] == 'noise':
+                clustering_obj_copy.cluster_labels[i] = 0
+        clustering_obj_copy.cluster_labels = np.array(clustering_obj_copy.cluster_labels)
+        return clustering_obj_copy
