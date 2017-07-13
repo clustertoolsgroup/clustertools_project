@@ -114,7 +114,7 @@ class Consensus(object):
         if self._how == 'spectral':
             if self._spectral_params is None:
                 # Default spectral clustering
-                meta_clustering = similarity.SpectralClustering(dists, similarity_measure=None, n=self._k, verbose=self._verbose)
+                meta_clustering = similarity.SpectralClustering(dists, similarity_measure=None, k=self._k, verbose=self._verbose)
             else:
                 self._spectral_params["data"] = dists
                 self._spectral_params["similarity_measure"] = None
