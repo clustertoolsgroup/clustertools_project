@@ -14,7 +14,7 @@ from clustertools.models import similarity
 
 class Consensus(object):
 
-    def __init__(self, clusterings, k=5, recluster_what='points', how='hierarchical', spectral_params=None, verbose=True, **kwargs):
+    def __init__(self, clusterings, k=5, recluster_what='points', how='spectral', spectral_params=None, verbose=True, **kwargs):
 
         '''
         Consensus clustering, see e.g. http://www.jmlr.org/papers/volume3/strehl02a/strehl02a.pdf
