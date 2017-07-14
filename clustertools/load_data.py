@@ -96,6 +96,16 @@ def load_spiral_data(scale = 'False'):
     else: 
         data = np.loadtxt('./clustertools/data/spiral.txt')
     return data
+    
+def load_uneven_blobs(scale = 'False'):
+    '''
+    uneven blobs dataset generated with sklearn.datasets.make_blobs
+    '''
+    if scale == 'True':
+        data = scale_data(np.loadtxt('./clustertools/data/uneven_blobs.txt'))
+    else: 
+        data = np.loadtxt('./clustertools/data/uneven_blobs.txt')
+    return data
 
 def scale_data(data):
     '''
@@ -107,14 +117,3 @@ def scale_data(data):
     std = np.std(data,axis=0)
     scaled = np.array([(data[:,i]-mean[i])/std[i] for i in range(d)]).T
     return scaled
-
-def load_uneven_blobs():
-    '''
-    uneven blobs dataset generated with sklearn.datasets.make_blobs
-    '''
-    from sklearn.datasets import make_blobs
-    n_samples = 1500
-    random_state = 3
-    X, y = make_blobs(n_samples=n_samples, cluster_std=[1.5, 2.5, 2.5], random_state=random_state)
-    data = np.vstack((X[y == 0][:500], X[y == 1][:200], X[y == 2][:200]))
-    return data
