@@ -200,6 +200,11 @@ class Consensus(object):
         #print("entropy b: {0}".format(entropy_b))
         
         return mutual_information / np.sqrt(entropy_a * entropy_b)
+        
+    def nmi_with_me(self, labels):
+        if self.cluster_labels is None:
+            self.fit()
+        return self.compute_nmi(self.cluster_labels, labels)
     
     def _noise_to_zero(self, clustering_obj):
         '''Returns a copy of the clustering object with noise-labels set to an ndarray of 0-labels.'''
