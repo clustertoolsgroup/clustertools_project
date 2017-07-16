@@ -15,7 +15,7 @@ from clustertools.models.distance import KMeans
 
 class SpectralClustering(object):
 
-    def __init__(self, data, n, similarity_measure='gaussian', laplacian='normalized', metric='euclidean',
+    def __init__(self, data, k, similarity_measure='gaussian', laplacian='normalized', metric='euclidean',
                  kmeans_params = None, verbose=True, **kwargs):
         '''
         Graph-based Spectral Clustering, normalized cuts algorithm by default (normalized graph Laplacian),
@@ -25,12 +25,12 @@ class SpectralClustering(object):
         
         Args:
             data: (n,d)-shaped two-dimensional ndarray or graph adjacency matrix
-            n: number of clusters to be determined
+            k: number of clusters to be determined
             similarity measure: specification of similarity measure on data array for graph generation
                 'eps_dist' for discrete minimal distance measure: optional argument 'eps' must be passed
                 'gaussian' for gaussian similarity measure: optional argument 'bandwidth' must be passed
                 'kNN' for k-nearest neighbor similarity measure: optional arguments 'k' and 'kNN_mode' must be passed
-                    k: number of nearest neighbors to be considered
+                    k_neighbor: number of nearest neighbors to be considered
                     kNN_mode: 'mutual' or 'unilateral', depending
                 None: the given data array will be considered as an adjacency array, no further graph computations will happen
             laplacian: type of the graph Laplacian to be eigendecomposed
@@ -49,12 +49,12 @@ class SpectralClustering(object):
         
         eps = kwargs.get('eps')
         bandwidth = kwargs.get('bandwidth')
-        k = kwargs.get('k')
+        k_neighbor = kwargs.get('k_neighbor')
         kNN_mode = kwargs.get('kNN_mode')
         
-        self._n = n
-        self._data = data
         self._k = k
+        self._data = data
+        self._k_neighbor = k_neighbor
         self._laplacian = laplacian
         self._similarity_measure = similarity_measure
         self._cluster_labels = None
@@ -114,7 +114,7 @@ class SpectralClustering(object):
                 W = np.exp(-1*np.power(distances,2)/(2*self._bandwidth**2))
             if self._similarity_measure == 'kNN':
                 print('Constructing kNN adjacency matrix')
-                W = self.kNN_adjacency(self._k,distances,mode = self._kNN_mode)
+                W = self.kNN_adjacency(self._k_neighbor,distances,mode = self._kNN_mode)
         else:
             W = self._data
 
@@ -132,7 +132,7 @@ class SpectralClustering(object):
             eigvals,eigvecs = eig(L,D)
             
         #rescaling of eigenvectors for computational purposes
-        eigvecs = dim*(eigvecs)[:,0:self._n]
+        eigvecs = dim*(eigvecs)[:,0:self._k]
         
         
         #------------------
@@ -144,11 +144,11 @@ class SpectralClustering(object):
            
         if self._kmeans_params is None:
             #default KMeans parameters
-            cluster_obj = KMeans(data = eigvecs,k=self._n,method='kmeans++',max_iter=300,atol=10**-12,rtol=10**-12,verbose=self._verbose)
+            cluster_obj = KMeans(data = eigvecs,k=self._k,method='kmeans++',max_iter=300,atol=10**-12,rtol=10**-12,verbose=self._verbose)
         else:
             #pass dict arguments 
             self._kmeans_params["data"] = eigvecs
-            self._kmeans_params["k"] = self._n  
+            self._kmeans_params["k"] = self._k
             cluster_obj = KMeans(**self._kmeans_params)
         cluster_obj.fit()
         labels = cluster_obj._cluster_labels
@@ -212,11 +212,36 @@ class SpectralClustering(object):
 class AffinityPropagation(object):
 
     def __init__(self, data, max_iter = 100,damp=.5 ,similarity_measure='squared_distance', metric='euclidean',
-                    atol=10e-3, rtol=10e-3, verbose=True, **kwargs):
+                   sensitivity_weights = 'median',n_break_storage = None ,verbose=True, **kwargs):
+
         '''
-        
-        Args:
-        '''
+                Affinity Propagation clustering routine
+                see http://www.psi.toronto.edu/~psi/pubs2/2007/972.pdf
+
+                Args:
+                    data: (n,d)-shaped two-dimensional ndarray or graph adjacency matrix
+                    max_iter: maximal iterations count
+                    damp: damping parameter for availability and responsability matrix computations in [0,1]
+                        A_new = damp*A_new_computed + (1-damp)*A_old
+                        NOTE: the choice of the dmaping factor is of particular importance for the outcome of the clustering,
+                        numerical oscillations can influence the clustering heavily
+                    similarity measure: specification of similarity measure on data array for similarity array generation
+                        'distance' for s(x_i,x_j) = -dist(x_i,x_j) w.r.t. to given metric
+                        'squared_distance' for s(x_i,x_j) = -dist(x_i,x_j)^2 w.r.t. to given metric
+                        None: the given data array will be considered as a similarity array
+                            NOTE: it is of crucial importance that s(x_i,x_j)>s(x_i,x_k) => x_i more similar to x_j than to x_k
+                            an optimal range for s would be [-inf,0]
+                    metric: specification of used metric used in the similarity measures, see scipy.spatial.distance docs
+                        WARNING: classic spectral clustering is based on the euclidean distance, it is recommended to use this metric.
+                    sensitivity weights: diagonal entries on the similarity matrix.
+                        either np.ndarray of shape nxn (larger entries correspond to larger weighting of the point to be chosen as exemplar) or
+                        'median': uniform weighting with median sensitivity
+                        'min': uniform weighting with low sensitiviy
+                        'max': uniform weighting with high sensitivity
+                    n_break_storage:
+                        None: no break criterion, iteration stops after max_iter. Reasonably faster than setting a break condition
+                        int: stops iterations if n_break_storage iterations yield the same exemplars in a row
+                    '''
 
         if type(data) is list:
             raise NotImplementedError('Affinity Propagation is not list compatible yet')
@@ -230,16 +255,14 @@ class AffinityPropagation(object):
         self._n_clusters = None
         self._verbose = verbose
         self._metric = metric
-        #self._eps = eps
         self._bandwidth = bandwidth
         self._max_iter = max_iter
+        self._sensitivity_weights = sensitivity_weights
+        self._n_break_storage = n_break_storage
         
         if self._metric != 'euclidean':
-            print('Warning: spectral clustering not initialized with euclidean metric. This results in a purely experimental algorithm!')
-            
-        #check for bandwidth
-        if self._similarity_measure == 'gaussian' and self._bandwidth is None:
-            raise TypeError('Argument "bandwidth" for given similarity metric not found')
+            print('Warning: Affinity Propagation not initialized with euclidean metric. This results in a purely experimental algorithm!')
+
 
     @property
     def cluster_labels(self):
@@ -269,18 +292,30 @@ class AffinityPropagation(object):
         if self._similarity_measure == 'squared_distance':
                 print('Constructing squared distance matrix')
                 S = -np.power(distance.cdist(self._data,self._data,self._metric),2)
-        if self._similarity_measure == 'gaussian':
-                print('Constructing gaussian similarity matrix')
-                S = np.exp(-1*np.power(distance.pdist(self._data,self._metric),2)/(2*self._bandwidth**2))
+        if self._similarity_measure is None:
+                S = self._data
+                print('Similarity array passed')
 
 
-        np.fill_diagonal(S,np.median(S))
+        #sensitivity weights
+        if self._sensitivity_weights == 'median':
+            np.fill_diagonal(S,np.median(S))
+        if self._sensitivity_weights == 'min':
+            np.fill_diagonal(S,np.min(S))
+        if self._sensitivity_weights == 'max':
+            np.fill_diagonal(S,np.max(S))
+        if type(self._sensitivity_weights) is np.ndarray:
+            np.fill_diagonal((S,self._sensitivity_weights))
 
         counter = 0
-        break_cond = False # flags the termination by break condition
+        break_cond = False #flags the termination by break condition
 
+        #array allocation
         A = np.zeros((n_samples,n_samples))
         R = np.zeros((n_samples,n_samples))
+
+        if self._n_break_storage is not None:
+            break_storage = [0]*self._n_break_storage
 
         while counter < self._max_iter:
             A_old = np.copy(A)
@@ -316,22 +351,37 @@ class AffinityPropagation(object):
 
             counter = counter+1
 
-        #label assignment
-        E = A + R
-        indices = np.arange(n_samples)[np.diag(E)>0]
+            #label assignment in loop if break criterion available
+            if self._n_break_storage is not None:
+                E = A + R
+                indices = np.arange(n_samples)[np.diag(E) > 0]
+                # fill break storage
+                break_index = counter % self._n_break_storage
+                break_storage[break_index] = indices
+
+                # break condition check
+                if (counter > self._n_break_storage) and np.all([np.array_equal(x,break_storage[0]) for x in break_storage]):
+                    break_cond=True
+                    break
+
+
+        #label assignment after loop if no break criterion available -> saves time
+        if self._n_break_storage is None:
+            E = A + R
+            indices = np.arange(n_samples)[np.diag(E) > 0]
+
         np.fill_diagonal(S,np.inf)
         cluster_labels = np.argmax(S[:,indices],axis = 1)
 
-
         self._cluster_labels = cluster_labels
 
-        #if self._verbose:
-        #    if break_cond:
-        #        print('terminated by break condition')
-        #    print('%s iterations until termination.' % str(counter))
-        #    elapsed_time = timer() - start_time
-        #    elapsed_time = timedelta(seconds=elapsed_time)
-        #    print('Finished after '+str(elapsed_time))
+        if self._verbose:
+            if break_cond:
+                print('terminated by break condition')
+            print('%s iterations until termination.' % str(counter))
+            elapsed_time = timer() - start_time
+            elapsed_time = timedelta(seconds=elapsed_time)
+            print('Finished after '+str(elapsed_time))
         #    print('max within-cluster distance to center: %f'%np.max(self._cluster_dist))
         #    print('mean within-cluster distance to center: %f' %np.mean(self._cluster_dist))
         #    print('sum of within cluster squared errors: %f' % np.sum(np.square(self._cluster_dist)))
