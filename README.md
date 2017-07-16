@@ -1,13 +1,13 @@
 
-## Clustertool
+## Clustertools
+
+![](https://raw.githubusercontent.com/clustertoolsgroup/clustertools_project/master/images/spectral_example.png)
 
 ### Overview
 
 A self-contained, scikit-learn API-oriented Python package supporting a variety of different clustering algorithms for Machine Learning applications.
 
 Developed as part of "Mathematical aspects in Machine Learning", Freie Universität Berlin, summer semester 2017.
-
-![](https://raw.githubusercontent.com/clustertoolsgroup/clustertools_project/master/images/meanshift.pdf)
 
 ### Contents
 This package provides the following functionality:
