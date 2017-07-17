@@ -107,13 +107,16 @@ class SpectralClustering(object):
         if self._similarity_measure is not None:
             distances = distance.cdist(self._data,self._data,metric=self._metric)
             if self._similarity_measure == 'eps_dist':
-                print('Constructing discrete similarity matrix')
+                if self._verbose:
+                    print('Constructing discrete similarity matrix')
                 W = self.eps_dist_adjacency(distances,self._eps)
             if self._similarity_measure == 'gaussian':
-                print('Constructing gaussian similarity matrix')
+                if self._verbose:
+                    print('Constructing gaussian similarity matrix')
                 W = np.exp(-1*np.power(distances,2)/(2*self._bandwidth**2))
             if self._similarity_measure == 'kNN':
-                print('Constructing kNN adjacency matrix')
+                if self._verbose:
+                    print('Constructing kNN adjacency matrix')
                 W = self.kNN_adjacency(self._k_neighbor,distances,mode = self._kNN_mode)
         else:
             W = self._data
@@ -123,11 +126,13 @@ class SpectralClustering(object):
        
         #construct laplacian matrix
         if self._laplacian == 'standard':
-            print('Computing standard Laplacian eigenproblem')
+            if self._verbose:
+                print('Computing standard Laplacian eigenproblem')
             L = D-W
             eigvals,eigvecs = eig(L)
         if self._laplacian == 'normalized':
-            print('Computing generalized Laplacian eigenproblem')
+            if self._verbose:
+                print('Computing generalized Laplacian eigenproblem')
             L = D-W
             eigvals,eigvecs = eig(L,D)
             
@@ -452,14 +457,14 @@ class HierarchicalClustering(object):
         # Check link type
         assert any((self._link=='average', self._link=='complete', self._link=='single')), "unknown link type"
         
-        @property
-        def cluster_labels(self):
-            if self._cluster_labels is None:
-                self.fit()
-            return self._cluster_labels
-        @cluster_labels.setter
-        def cluster_labels(self,value):
-            self._cluster_labels = value
+    @property
+    def cluster_labels(self):
+        if self._cluster_labels is None:
+            self.fit()
+        return self._cluster_labels
+    @cluster_labels.setter
+    def cluster_labels(self,value):
+        self._cluster_labels = value
 
     def fit(self):
         '''
@@ -467,7 +472,7 @@ class HierarchicalClustering(object):
         '''
 
         if self._verbose:
-           start_time = timer()
+            start_time = timer()
 
         [n, dim] = self._data.shape
         cluster_labels = [None] * n
