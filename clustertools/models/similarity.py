@@ -65,6 +65,7 @@ class SpectralClustering(object):
         self._bandwidth = bandwidth
         self._kNN_mode = kNN_mode 
         self._kmeans_params = kmeans_params
+        self._adjacency = None
         
         if self._metric != 'euclidean':
             print('Warning: spectral clustering not initialized with euclidean metric. This results in a purely experimental algorithm!')
@@ -114,12 +115,16 @@ class SpectralClustering(object):
                 if self._verbose:
                     print('Constructing gaussian similarity matrix')
                 W = np.exp(-1*np.power(distances,2)/(2*self._bandwidth**2))
+                if self._eps is not None:
+                    W = (W > self._eps).astype(int)
             if self._similarity_measure == 'kNN':
                 if self._verbose:
                     print('Constructing kNN adjacency matrix')
                 W = self.kNN_adjacency(self._k_neighbor,distances,mode = self._kNN_mode)
         else:
             W = self._data
+
+        self._adjacency = W
 
         #graph degree matrix
         D = np.diag(np.sum(W,axis=0))

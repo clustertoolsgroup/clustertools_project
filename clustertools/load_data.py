@@ -82,9 +82,9 @@ def load_sets_data(scale = 'False'):
     datasets from: https://cs.joensuu.fi/sipu/datasets/
     '''
     if scale == 'True':
-        data = scale_data(np.loadtxt('./clustertools/data/\s4.txt'))
+        data = scale_data(np.loadtxt('./clustertools/data/s4.txt'))
     else:
-        data = np.loadtxt('./clustertools/data/\s4.txt')
+        data = np.loadtxt('./clustertools/data/s4.txt')
     return data
 
 def load_spiral_data(scale = 'False'):
