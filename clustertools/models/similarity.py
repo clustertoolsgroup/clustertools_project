@@ -142,7 +142,7 @@ class SpectralClustering(object):
             eigvals,eigvecs = eig(L,D)
             
         #rescaling of eigenvectors for computational purposes
-        eigvecs = dim*(eigvecs)[:,0:self._k]
+        eigvecs = dim*(eigvecs)[:,1:self._k+1]
         
         
         #------------------
