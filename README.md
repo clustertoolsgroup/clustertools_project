@@ -9,9 +9,6 @@ A self-contained, scikit-learn API-oriented Python package supporting a variety 
 
 Developed as part of "Mathematical aspects in Machine Learning", Freie Universität Berlin, summer semester 2017.
 
-(Disclaimer: Our K-Means, Regspace and DBSCAN implementations come from the project Markov Chains and Markov State Models with Prof. Noé.)
-
-
 ### Contents
 This package provides the following functionality:
 
